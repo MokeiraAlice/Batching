@@ -23,21 +23,36 @@ public class ExportController {
     }
 
 
+//    private String getValueAsString(Map<String, Object> row, String column) {
+//        Object value = row.get(column);
+//        return value != null ? value.toString() : "";
+//    }
+
     @GetMapping("/export/excel")
     public void exportToExcel(HttpServletResponse response) throws IOException {
-        List<Map<String, Object>> data = jdbcTemplate.queryForList("SELECT * FROM persons");
+        // Use aliased SQL query
+        String sql = """
+        SELECT 
+            id,
+            first_name AS "firstName",
+            last_name AS "lastName",
+            email,
+            birth_date AS "birthDate"
+        FROM persons
+        """;
+        List<Map<String, Object>> data = jdbcTemplate.queryForList(sql);
 
         Workbook workbook = new SXSSFWorkbook();
         Sheet sheet = workbook.createSheet("Persons");
 
-        // Header row (unchanged)
-        Row headerRow = sheet.createRow(0);
+        // Headers
         String[] headers = {"ID", "First Name", "Last Name", "Email", "Birth Date"};
+        Row headerRow = sheet.createRow(0);
         for (int i = 0; i < headers.length; i++) {
             headerRow.createCell(i).setCellValue(headers[i]);
         }
 
-        // Data rows with null checks
+        // Data rows
         int rowNum = 1;
         for (Map<String, Object> row : data) {
             Row dataRow = sheet.createRow(rowNum++);
@@ -54,26 +69,38 @@ public class ExportController {
         workbook.close();
     }
 
-    private String getValueAsString(Map<String, Object> row, String column) {
-        Object value = row.get(column);
-        return value != null ? value.toString() : "";
+    private String getValueAsString(Map<String, Object> row, String key) {
+        Object value = row.get(key);
+        return (value != null) ? value.toString() : ""; // Handle nulls
     }
+
+
 
 
     @GetMapping("/export/csv")
     public void exportToCsv(HttpServletResponse response) throws IOException {
-        List<Map<String, Object>> data = jdbcTemplate.queryForList("SELECT * FROM persons");
+        // Use aliased SQL query
+        String sql = """
+                SELECT 
+                    id,
+                    first_name AS "firstName",
+                    last_name AS "lastName",
+                    email,
+                    birth_date AS "birthDate"
+                FROM persons
+                """;
+        List<Map<String, Object>> data = jdbcTemplate.queryForList(sql);
 
         response.setContentType("text/csv");
         response.setHeader("Content-Disposition", "attachment; filename=persons.csv");
 
-        // Header
+        // Headers
         String[] headers = {"ID", "First Name", "Last Name", "Email", "Birth Date"};
         response.getWriter().write(String.join(",", headers) + "\n");
 
-        // Data rows with null checks
+        // Data rows with CSV-safe formatting
         for (Map<String, Object> row : data) {
-            String line = String.format("%s,%s,%s,%s,%s",
+            String line = String.format("\"%s\",\"%s\",\"%s\",\"%s\",\"%s\"",
                     getValueAsString(row, "id"),
                     getValueAsString(row, "firstName"),
                     getValueAsString(row, "lastName"),
@@ -83,5 +110,6 @@ public class ExportController {
         }
 
         response.getWriter().flush();
+
     }
 }
